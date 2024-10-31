@@ -1,0 +1,266 @@
+---
+title: "第一次作业你的报告题目"
+CJKmainfont: Songti SC
+author: "徐颖"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: show
+    fig_caption: yes
+    fig_width: 10
+    highlight: tango
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    latex_engine: xelatex
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include = FALSE,echo = FALSE}
+knitr::opts_chunk$set(echo = FALSE,error = FALSE, warning = FALSE, message = FALSE,
+                      out.width = "100%", split = FALSE, fig.align = "center")
+#load library
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(scales)
+library(plotly)
+library(patchwork)
+library(ggrepel)
+library(readxl)
+library(skimr)
+library(rstatix)
+library(wordcloud2)
+```
+
+# 你的主要发现
+
+1.  发现1
+
+2.  发现2
+
+3.  发现3
+
+# 数据介绍
+
+本报告**链家**数据获取方式如下：
+
+报告人在2023年9月12日获取了[链家武汉二手房网站](https://wh.lianjia.com/ershoufang/)数据。
+
+-   链家二手房网站默认显示100页，每页30套房产，因此本数据包括3000套房产信息；
+
+-   数据包括了页面可见部分的文本信息，具体字段及说明见作业说明。
+
+**说明：**数据仅用于教学；由于不清楚链家数据的展示规则，因此数据可能并不是武汉二手房市场的随机抽样，结论很可能有很大的偏差，甚至可能是错误的。
+
+```{r}
+# 载入数据和预处理
+
+lj<- read_csv("D:/xuying/data/2023-09-12_cleaned.csv")
+# EDA ---------------------------------------------------------------------
+
+## 如下语句可以解决画图中的中文显示问题，当然你可以用showtext包来解决
+
+theme_set(theme(text = element_text(family="Songti SC",size = 10))) #这里family设置成你系统中的中文字体名。
+
+# 做一些数据预处理，比如把字符型变成factor。
+
+```
+
+# 数据概览
+
+数据表（lj)共包括`r names(lj)`等`r ncol(lj)`个变量,共`r nrow(lj)`行。表的前10行示例如下：
+
+```{r}
+lj %>% 
+  head(10) %>%
+  kable(caption = "武汉链家二手房") %>% 
+  kable_styling()
+```
+
+各变量的简短信息：###也可以用str(lj)
+
+```{r}
+glimpse(lj)
+```
+
+各变量的简短统计：
+
+```{r}
+summary(lj)
+```
+
+可以看到：
+
+-   直观结论1 不同的区域，房价不一样
+
+-   直观结论2 同一个区域，楼层对价格的影响 热门区域
+
+-   ...
+
+# 探索性分析
+
+## 变量1的数值描述与图形
+
+property_region的数值描述和图形\
+发现：\
+- 发现1：\
+白沙洲是当前二手房源最多的区域，其次是四新/光谷东/盘龙城/金银湖，说明这些区域的二手房市场较活跃。
+
+```{r}
+###查看每个区域的房源数
+###table(lj$property_region)
+###输出房源数最多的一个区域
+names(which.max(table(lj$property_region)))
+###输出词云，房源密集的地名的词云
+wordcloud2(table(lj$property_region))
+```
+
+-   发现2：
+    房源较多的区域如白沙洲/金银湖/盘龙城/四新的价格会比其他地区的低，且价格波动更小；
+
+```{r}
+###计算每个区域的频次
+fre1 <- table(lj$property_region)
+###将频次添加到数据框
+fre2 <- as.data.frame(fre1)
+colnames(fre2)[1] <- "property_region"
+colnames(fre2)[2] <- "p_rank"
+###给数据集加上按频次降序的排名
+fre3 <- fre2 %>% 
+mutate(rank1=rank(desc(p_rank)),rank_t=if_else(rank1<11,rank1,11),rank_t_name=if_else(rank1<11,property_region,"其他"),rank_region=paste(rank_t,property_region,sep="-"))
+###给区域匹配频次排名，1-10名和其他
+lj_top10_all <- lj %>% 
+inner_join(fre3,by="property_region")
+###画箱线图，观察价格和区域的关系
+ggplot(data = lj_top10_all,mapping = aes(x=rank_t_name,y=price_sqm,color=rank_t))+geom_boxplot()
+```
+
+## 变量2的数值描述与图形
+
+bedrooms的数值描述与图形\
+发现：\
+- 发现1：  
+市面上流通的房子以2-3个房间数为主，3个房间的房子最多，其次是2个房间的，其他房间数量的房子比较少。
+
+```{r}
+hist(lj$bedrooms)
+```
+
+-   发现2：\
+    房间数对价格的影响不大，但是房间数越多，房价的分散程度越大，比如说5个房间的房间波动是最大的，5个房间里面可能包含部分门高档住宅或别墅之类的，使价格波动较大。
+
+```{r}
+ggplot(data = lj,mapping = aes(x=factor(bedrooms),y=price_sqm))+geom_boxplot()
+```
+
+## 变量...的数值描述与图形
+
+property_region和followers的数值描述和图形\
+发现：\
+- 发现1：\
+各区域的关注人数较稳定，房源越多并没有更多的关注人数，尤其是白沙洲/金银湖/盘龙城/四新等房源较多的区域，可能会出现房源积压的情况；而房源较少的区域，可适当增投房源数。
+
+```{r}
+###计算每个区域的平均关注人数
+mean_followers <- lj %>% 
+  group_by(property_region) %>% 
+  summarize(followers_num=mean(followers,na.rm = TRUE))
+###把平均关注人数匹配到地区汇总表中
+fre4 <- fre3 %>% 
+left_join(mean_followers,by="property_region")
+###探索房源数p_rank和关注人数followers_num之间的关系，x轴是按房源数从高到低排序
+ggplot(data=fre4)+
+  geom_smooth(mapping = aes(x=rank1,y=p_rank),color="red", method = "lm")+
+  geom_smooth(mapping = aes(x=rank1,y=followers_num),color="blue", method = "lm")
+```
+
+-   发现2：
+
+    上架的房源数与区域的小区数呈现正相关，比如白沙洲的小区数量就是最多的，但是随着小区数量的减少，上架的房源数急剧下降，房源数的降幅高于小区数的降幅。
+
+```{r}
+###对每个区域的小区数量进行去重计数
+pro_num <- lj %>% 
+group_by(property_region) %>% 
+summarize(property_n=n_distinct(property_name))
+###给区域汇总表匹配上小区数量
+fre5 <- fre4 %>% 
+left_join(pro_num,by="property_region")
+###探索房源数p_rank和关注人数followers_num之间的关系，x轴是按房源数从高到低排序
+ggplot(data=fre5)+
+  geom_smooth(mapping = aes(x=rank1,y=p_rank),color="red")+
+  geom_smooth(mapping = aes(x=rank1,y=property_n),color="blue")
+```
+
+## 探索问题1
+
+装修情况对房价的影响？\
+发现1：\
+二手房中，精装房的房价会比其他几种装修的房价高，且精装房的房价波动较大，说明装修好坏是影响房价的一个因素。
+
+```{r}
+ggplot(data = lj,mapping = aes(x=factor(decoration),y=price_sqm))+geom_boxplot()
+```
+
+-   发现2：\
+    从各区域的二手房装修情况来看，精装房占比最高，其次是简装房，毛坯房较少。
+
+```{r}
+ggplot(data=lj_top10_all)+
+  geom_bar(mapping = aes(x=rank1,fill=decoration),position = "fill")
+```
+
+## 探索问题2
+
+房屋在所在楼栋所处的位置对房价的影响？\
+发现：\
+- 发现1：\
+房屋在所在楼栋中所处的位置对房价的影响较小，几乎不影响。
+
+```{r}
+ggplot(data = lj,mapping = aes(x=factor(property_height),y=price_sqm))+geom_boxplot()
+```
+
+-   发现2：\
+    各楼层占比分布相对较均匀，中层房屋占比略多。
+
+```{r}
+ggplot(data=lj_top10_all)+
+  geom_bar(mapping = aes(x=rank1,fill=property_height),position = "fill")
+```
+
+## 探索问题3
+
+地铁对房价的影响\
+发现：\
+- 发现1：\
+靠近地铁的房价比不靠近地铁的房价高，说明地铁是利好房价的一个因素
+
+```{r}
+ggplot(data = lj,mapping = aes(x=near_subway,y=price_sqm))+geom_boxplot()
+```
+
+-   发现2：\
+    二手房源数量top10的区域中，不靠近地铁的房屋会偏多，因此也验证了前面房源数量top的区域房价会偏低一些。
+
+```{r}
+###取房源数量前10的区域进行对比
+lj_top10_all %>% 
+  filter(rank1<11) %>% 
+  ggplot(aes(x=rank1,fill=near_subway),position = "fill")+
+geom_bar()
+```
+
+------------------------------------------------------------------------
+
+# 发现总结
+
+用1-3段话总结你的发现。
+1.房屋数量多的区域，覆盖的小区也偏多，这些地方的地铁偏少，相对没有那么便利，价格波动也较小；
+2.影响房价的因素有：区域、装修情况、是否靠近地铁等因素；而楼层、房间数量等因素对房价的影响较小；
